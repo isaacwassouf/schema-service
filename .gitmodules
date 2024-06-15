@@ -1,0 +1,3 @@
+[submodule "protobufs/schema_management_service"]
+	path = protobufs/schema_management_service
+	url = git@github.com:isaacwassouf/schema-service-protobutfs.git
