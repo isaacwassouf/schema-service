@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"text/template"
@@ -77,6 +78,26 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 	}
 
 	return &pb.CreateTableResponse{Message: tableSQL.String()}, nil
+}
+
+func (s *SchemaManagementService) DropTable(ctx context.Context, in *pb.DropTableRequest) (*pb.DropTableResponse, error) {
+	// Check if the table exists
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// Drop the table
+	_, err = s.schemaManagementServiceDB.Db.Exec(fmt.Sprintf("DROP TABLE %s", in.TableName))
+	if err != nil {
+		log.Printf("failed to drop table: %v", err)
+		return nil, status.Error(codes.Internal, "failed to drop table")
+	}
+
+	return &pb.DropTableResponse{Message: "table dropped"}, nil
 }
 
 func main() {
