@@ -9,7 +9,7 @@ import (
 )
 
 type SchemaManagementServiceDB struct {
-	db *sql.DB
+	Db *sql.DB
 }
 
 func NewSchemaManagementServiceDB() (*SchemaManagementServiceDB, error) {
@@ -27,5 +27,5 @@ func NewSchemaManagementServiceDB() (*SchemaManagementServiceDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SchemaManagementServiceDB{db: db}, nil
+	return &SchemaManagementServiceDB{Db: db}, nil
 }
