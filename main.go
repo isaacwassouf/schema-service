@@ -16,24 +16,55 @@ import (
 	utils "github.com/isaacwassouf/schema-service/utils"
 )
 
+type Column struct {
+	Name         string
+	Type         string
+	NotNullable  bool
+	IsUnique     bool
+	IsPrimaryKey bool
+}
+
+type Table struct {
+	Name    string
+	Columns []Column
+}
+
 type SchemaManagementService struct {
 	pb.UnimplementedSchemaServiceServer
 	schemaManagementServiceDB *db.SchemaManagementServiceDB
 }
 
 func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.CreateTableRequest) (*pb.CreateTableResponse, error) {
-	type Table struct {
-		TABLE_NAME string
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/create_table.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
 	}
 
-	templ, err := template.New("create_table").Parse(`CREATE TABLE IF NOT EXISTS {{.TABLE_NAME}} (id SERIAL PRIMARY KEY);`)
+	// create the template from the file
+	createTableTemplate, err := template.New("create_table").Parse(templateFile)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to create table")
 	}
 
+	// create the columns slice
+	columns := make([]Column, len(in.Columns))
+	for i, column := range in.Columns {
+		columns[i] = Column{
+			Name:         column.Name,
+			Type:         column.Type,
+			NotNullable:  column.NotNullable,
+			IsUnique:     column.IsUnique,
+			IsPrimaryKey: column.IsPrimaryKey,
+		}
+	}
+
 	var tableSQL bytes.Buffer
 	// Execute the template and write the output to a string
-	err = templ.Execute(&tableSQL, Table{TABLE_NAME: in.TableName})
+	err = createTableTemplate.Execute(&tableSQL, Table{
+		Name:    in.TableName,
+		Columns: columns,
+	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")
 	}
