@@ -58,6 +58,11 @@ func GetIntColumnType(column *pb.Column) (string, error) {
 		columnType += " UNSIGNED"
 	}
 
+	// check if the int column is auto increment
+	if column.GetIntColumn().GetAutoIncrement() {
+		columnType += " AUTO_INCREMENT"
+	}
+
 	return columnType, nil
 }
 
