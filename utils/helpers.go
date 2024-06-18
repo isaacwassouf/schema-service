@@ -36,6 +36,17 @@ func CheckTableExists(db *sql.DB, tableName string) (bool, error) {
 	return rows.Next(), nil
 }
 
+func CheckColumnExists(db *sql.DB, tableName string, columnName string) (bool, error) {
+	query := fmt.Sprintf("SHOW COLUMNS FROM %s LIKE '%s'", tableName, columnName)
+	rows, err := db.Query(query)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	return rows.Next(), nil
+}
+
 func GetIntColumnType(column *pb.Column) (string, error) {
 	var columnType string
 	switch column.GetIntColumn().GetType() {

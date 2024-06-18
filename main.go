@@ -132,6 +132,59 @@ func (s *SchemaManagementService) DropTable(ctx context.Context, in *pb.DropTabl
 	return &pb.DropTableResponse{Message: "table dropped"}, nil
 }
 
+func (s *SchemaManagementService) DropColumn(ctx context.Context, in *pb.DropColumnRequest) (*pb.DropColumnResponse, error) {
+	// Check if the table exists
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// Check if the column exists
+	columnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.TableName, in.ColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if column exists")
+	}
+	if !columnExists {
+		return nil, status.Error(codes.NotFound, "column not found")
+	}
+
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/drop_column.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	dropColumnTemplate, err := template.New("create_table").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop column")
+	}
+
+	var dropColumnSQL bytes.Buffer
+	// Execute the template and write the output to a string
+	err = dropColumnTemplate.Execute(&dropColumnSQL, struct {
+		TableName  string
+		ColumnName string
+	}{
+		TableName:  in.TableName,
+		ColumnName: in.ColumnName,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// Drop the column
+	_, err = s.schemaManagementServiceDB.Db.Exec(dropColumnSQL.String())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop column")
+	}
+
+	return &pb.DropColumnResponse{Message: "column dropped"}, nil
+}
+
 func main() {
 	// load the environment variables from the .env file
 	err := utils.LoadEnvVarsFromFile()
