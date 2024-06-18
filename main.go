@@ -26,8 +26,13 @@ type Column struct {
 }
 
 type Table struct {
-	Name    string
-	Columns []Column
+	TableName string
+	Columns   []Column
+}
+
+type AddColumnPayload struct {
+	TableName string
+	Column    Column
 }
 
 type SchemaManagementService struct {
@@ -95,8 +100,8 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 	var tableSQL bytes.Buffer
 	// Execute the template and write the output to a string
 	err = createTableTemplate.Execute(&tableSQL, Table{
-		Name:    in.TableName,
-		Columns: columns,
+		TableName: in.TableName,
+		Columns:   columns,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")
@@ -183,6 +188,87 @@ func (s *SchemaManagementService) DropColumn(ctx context.Context, in *pb.DropCol
 	}
 
 	return &pb.DropColumnResponse{Message: "column dropped"}, nil
+}
+
+func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColumnRequest) (*pb.AddColumnResponse, error) {
+	// Check if the table exists
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// Check if the column exists
+	columnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.TableName, in.Column.Name)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if column exists")
+	}
+	if columnExists {
+		return nil, status.Error(codes.AlreadyExists, "column already exists")
+	}
+
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/add_column.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	addColumnTemplate, err := template.New("create_table").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to add column")
+	}
+
+	var columnType string
+	// map the column type to the SQL type
+	switch in.Column.Type.(type) {
+	case *pb.Column_IntColumn:
+		columnType, err = utils.GetIntColumnType(in.Column)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid integer column type")
+		}
+	case *pb.Column_BoolColumn:
+		columnType = "BOOLEAN"
+	case *pb.Column_TimestampColumn:
+		columnType = "TIMESTAMP"
+	case *pb.Column_VarcharColumn:
+		columnType, err = utils.GetVarCharColumnType(in.Column)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid varchar column type")
+		}
+	case nil:
+		return nil, status.Error(codes.InvalidArgument, "column type is required")
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid column type")
+	}
+
+	// read the file
+	var addColumnSQL bytes.Buffer
+	// Execute the template and write the output to a string
+	err = addColumnTemplate.Execute(&addColumnSQL, AddColumnPayload{
+		TableName: in.TableName,
+		Column: Column{
+			Name:         in.Column.Name,
+			Type:         columnType,
+			NotNullable:  in.Column.NotNullable,
+			IsUnique:     in.Column.IsUnique,
+			IsPrimaryKey: in.Column.IsPrimaryKey,
+		},
+	})
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// Add the column
+	_, err = s.schemaManagementServiceDB.Db.Exec(addColumnSQL.String())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to add column")
+	}
+
+	return &pb.AddColumnResponse{Message: "column added"}, nil
 }
 
 func main() {

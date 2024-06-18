@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS {{.Name}} (
+CREATE TABLE IF NOT EXISTS {{.TableName}} (
     {{- range $index, $element := .Columns }}
         {{- if $index}},{{ end }}
         {{ $element.Name }} {{ $element.Type }}
