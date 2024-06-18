@@ -36,6 +36,15 @@ type SchemaManagementService struct {
 }
 
 func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.CreateTableRequest) (*pb.CreateTableResponse, error) {
+	// Check if the table exists
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if tableExists {
+		return nil, status.Error(codes.AlreadyExists, "table already exists")
+	}
+
 	// read the file
 	templateFile, err := utils.ReadTemplateFile("templates/create_table.tmpl")
 	if err != nil {
@@ -51,9 +60,32 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 	// create the columns slice
 	columns := make([]Column, len(in.Columns))
 	for i, column := range in.Columns {
+		var columnType string
+		// map the column type to the SQL type
+		switch column.Type.(type) {
+		case *pb.Column_IntColumn:
+			columnType, err = utils.GetIntColumnType(column)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid integer column type")
+			}
+		case *pb.Column_BoolColumn:
+			columnType = "BOOLEAN"
+		case *pb.Column_TimestampColumn:
+			columnType = "TIMESTAMP"
+		case *pb.Column_VarcharColumn:
+			columnType, err = utils.GetVarCharColumnType(column)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid varchar column type")
+			}
+		case nil:
+			return nil, status.Error(codes.InvalidArgument, "column type is required")
+		default:
+			return nil, status.Error(codes.InvalidArgument, "invalid column type")
+		}
+
 		columns[i] = Column{
 			Name:         column.Name,
-			Type:         column.Type,
+			Type:         columnType,
 			NotNullable:  column.NotNullable,
 			IsUnique:     column.IsUnique,
 			IsPrimaryKey: column.IsPrimaryKey,
