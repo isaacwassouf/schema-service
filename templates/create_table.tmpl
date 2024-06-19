@@ -5,5 +5,7 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
         {{- if $element.NotNullable }} NOT NULL{{ end }}
         {{- if $element.IsUnique }} UNIQUE{{ end }}
         {{- if $element.IsPrimaryKey }} PRIMARY KEY{{ end }}
+        {{- if $element.ForeignKey.ReferenceTable }} REFERENCES {{ $element.ForeignKey.ReferenceTable }}({{ $element.ForeignKey.ReferenceColumn }}){{ end }}
+        {{- if and $element.ForeignKey.ReferenceTable  $element.ForeignKey.IsCascade }} ON DELETE CASCADE {{ end }}
     {{- end }}
 );

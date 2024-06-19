@@ -17,12 +17,19 @@ import (
 	utils "github.com/isaacwassouf/schema-service/utils"
 )
 
+type ForeignKey struct {
+	ReferenceTable  string
+	ReferenceColumn string
+	IsCascade       bool
+}
+
 type Column struct {
 	Name         string
 	Type         string
 	NotNullable  bool
 	IsUnique     bool
 	IsPrimaryKey bool
+	ForeignKey   ForeignKey
 }
 
 type Table struct {
@@ -94,6 +101,17 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			NotNullable:  column.NotNullable,
 			IsUnique:     column.IsUnique,
 			IsPrimaryKey: column.IsPrimaryKey,
+		}
+
+		// check if the column is a foreign key
+		var foreignKey ForeignKey
+		if column.ForeignKey != nil {
+			foreignKey = ForeignKey{
+				ReferenceTable:  column.ForeignKey.TableName,
+				ReferenceColumn: column.ForeignKey.ColumnName,
+				IsCascade:       column.ForeignKey.IsCascade,
+			}
+			columns[i].ForeignKey = foreignKey
 		}
 	}
 
