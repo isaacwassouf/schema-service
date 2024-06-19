@@ -17,6 +17,14 @@ func LoadEnvVarsFromFile() error {
 	return nil
 }
 
+func GetEnvVar(key string, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
+	}
+	return value
+}
+
 func ReadTemplateFile(filepath string) (string, error) {
 	templateFileBytes, err := os.ReadFile(filepath)
 	if err != nil {

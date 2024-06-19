@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	db "github.com/isaacwassouf/schema-service/database"
 	pb "github.com/isaacwassouf/schema-service/protobufs/schema_management_service"
@@ -289,6 +290,60 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 	}
 
 	return &pb.AddColumnResponse{Message: "column added"}, nil
+}
+
+func (s *SchemaManagementService) ListTables(ctx context.Context, in *emptypb.Empty) (*pb.ListTablesResponse, error) {
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/list_tables.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	listTablesTemplate, err := template.New("list_tables").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list tables")
+	}
+
+	// get the database name from the env vars
+	dbName := utils.GetEnvVar("MYSQL_DATABASE", "database")
+
+	// Execute the template and write the output to a string
+	var listTablesSQL bytes.Buffer
+	err = listTablesTemplate.Execute(&listTablesSQL, struct {
+		DatabaseName string
+	}{
+		DatabaseName: dbName,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// Get the list of tables
+	rows, err := s.schemaManagementServiceDB.Db.Query(listTablesSQL.String())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list tables")
+	}
+	defer rows.Close()
+	//
+	var tables []*pb.TableDetails
+	for rows.Next() {
+		//var tableDetails pb.TableDetails
+		var tableName string
+		var rowsCount uint64
+		var tableSize uint64
+		err := rows.Scan(&tableName, &rowsCount, &tableSize)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to scan table details")
+		}
+		tables = append(tables, &pb.TableDetails{
+			TableName: tableName,
+			RowsCount: rowsCount,
+			TableSize: tableSize,
+		})
+	}
+
+	return &pb.ListTablesResponse{Tables: tables}, nil
 }
 
 func main() {
