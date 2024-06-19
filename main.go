@@ -29,6 +29,7 @@ type Column struct {
 	NotNullable  bool
 	IsUnique     bool
 	IsPrimaryKey bool
+	DefaultValue string
 	ForeignKey   ForeignKey
 }
 
@@ -101,6 +102,7 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			NotNullable:  column.NotNullable,
 			IsUnique:     column.IsUnique,
 			IsPrimaryKey: column.IsPrimaryKey,
+			DefaultValue: column.DefaultValue,
 		}
 
 		// check if the column is a foreign key
