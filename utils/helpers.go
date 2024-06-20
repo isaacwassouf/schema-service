@@ -3,8 +3,10 @@ package utils
 import (
 	"database/sql"
 	"fmt"
+	"github.com/isaacwassouf/schema-service/shared"
 	"github.com/joho/godotenv"
 	"os"
+	"strings"
 
 	pb "github.com/isaacwassouf/schema-service/protobufs/schema_management_service"
 )
@@ -97,4 +99,119 @@ func GetVarCharColumnType(column *pb.Column) (string, error) {
 	}
 
 	return fmt.Sprintf("VARCHAR(%d)", column.GetVarcharColumn().Length), nil
+}
+
+func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, error) {
+	column := &pb.Column{}
+	// the column type is an int
+	if columnDetails.DataType == "int" {
+		column.Type = &pb.Column_IntColumn{
+			IntColumn: &pb.IntegerColumn{
+				Type: pb.IntegerColumnType_INT,
+			},
+		}
+
+		// check if its unsigned
+		if strings.Contains(columnDetails.ColumnType, "unsigned") {
+			column.GetIntColumn().IsUnsigned = true
+		}
+
+		// check if its auto increment
+		if columnDetails.Extra == "auto_increment" {
+			column.GetIntColumn().AutoIncrement = true
+		}
+
+		return column, nil
+	}
+
+	// the column is of type bigint
+	if columnDetails.DataType == "bigint" {
+		column.Type = &pb.Column_IntColumn{
+			IntColumn: &pb.IntegerColumn{
+				Type: pb.IntegerColumnType_BIGINT,
+			},
+		}
+
+		// check if its unsigned
+		if strings.Contains(columnDetails.ColumnType, "unsigned") {
+			column.GetIntColumn().IsUnsigned = true
+		}
+
+		// check if its auto increment
+		if columnDetails.Extra == "auto_increment" {
+			column.GetIntColumn().AutoIncrement = true
+		}
+
+		return column, nil
+	}
+
+	// the column type is a SMALLINT
+	if columnDetails.DataType == "smallint" {
+		column.Type = &pb.Column_IntColumn{
+			IntColumn: &pb.IntegerColumn{
+				Type: pb.IntegerColumnType_SMALLINT,
+			},
+		}
+
+		// check if its unsigned
+		if strings.Contains(columnDetails.ColumnType, "unsigned") {
+			column.GetIntColumn().IsUnsigned = true
+		}
+
+		// check if its auto increment
+		if columnDetails.Extra == "auto_increment" {
+			column.GetIntColumn().AutoIncrement = true
+		}
+
+		return column, nil
+	}
+
+	// the column type is a mediumint
+	if columnDetails.DataType == "mediumint" {
+		column.Type = &pb.Column_IntColumn{
+			IntColumn: &pb.IntegerColumn{
+				Type: pb.IntegerColumnType_MEDIUMINT,
+			},
+		}
+
+		// check if its unsigned
+		if strings.Contains(columnDetails.ColumnType, "unsigned") {
+			column.GetIntColumn().IsUnsigned = true
+		}
+
+		// check if its auto increment
+		if columnDetails.Extra == "auto_increment" {
+			column.GetIntColumn().AutoIncrement = true
+		}
+
+		return column, nil
+	}
+
+	// the column type is a tinyint, aka a boolean
+	if columnDetails.DataType == "tinyint" {
+		column.Type = &pb.Column_BoolColumn{}
+
+		return column, nil
+	}
+
+	// the column type is a varchar
+	if columnDetails.DataType == "varchar" {
+		column.Type = &pb.Column_VarcharColumn{
+			VarcharColumn: &pb.VarCharColumn{
+				Length: 122,
+			},
+		}
+
+		return column, nil
+	}
+
+	// the column type is a timestamp
+	if columnDetails.DataType == "timestamp" {
+		column.Type = &pb.Column_TimestampColumn{}
+
+		return column, nil
+	}
+
+	// return an error if the column type is not supported
+	return nil, fmt.Errorf("unsupported column type")
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/isaacwassouf/schema-service/shared"
 	"log"
 	"net"
 	"text/template"
@@ -278,7 +279,6 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 			IsPrimaryKey: in.Column.IsPrimaryKey,
 		},
 	})
-
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")
 	}
@@ -328,7 +328,7 @@ func (s *SchemaManagementService) ListTables(ctx context.Context, in *emptypb.Em
 	//
 	var tables []*pb.TableDetails
 	for rows.Next() {
-		//var tableDetails pb.TableDetails
+		// var tableDetails pb.TableDetails
 		var tableName string
 		var rowsCount uint64
 		var tableSize uint64
@@ -344,6 +344,91 @@ func (s *SchemaManagementService) ListTables(ctx context.Context, in *emptypb.Em
 	}
 
 	return &pb.ListTablesResponse{Tables: tables}, nil
+}
+
+func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListColumnsRequest) (*pb.ListColumnsResponse, error) {
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/list_columns.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	listColumnsTemplate, err := template.New("list_columns").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list columns")
+	}
+
+	// get the database name from the env vars
+	dbName := utils.GetEnvVar("MYSQL_DATABASE", "database")
+
+	// Execute the template and write the output to a string
+	var listColumnsSQL bytes.Buffer
+	err = listColumnsTemplate.Execute(&listColumnsSQL, struct {
+		DatabaseName string
+	}{
+		DatabaseName: dbName,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// execute the query and replace the ? with the table name
+	rows, err := s.schemaManagementServiceDB.Db.Query(listColumnsSQL.String(), in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list columns")
+	}
+	defer rows.Close()
+
+	var columns []*pb.Column
+	for rows.Next() {
+		var rawColumnDetails shared.RawColumnDetails
+		err := rows.Scan(&rawColumnDetails.ColumnName, &rawColumnDetails.DataType, &rawColumnDetails.ColumnType, &rawColumnDetails.ColumnKey, &rawColumnDetails.IsNullable, &rawColumnDetails.ColumnDefault, &rawColumnDetails.Extra)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to scan column details")
+		}
+
+		column, err := utils.GetColumnFromType(&rawColumnDetails)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to get column from type")
+		}
+
+		// set the name of the column
+		column.Name = rawColumnDetails.ColumnName
+
+		// check if the column is primary key
+		if rawColumnDetails.ColumnKey == "PRI" {
+			column.IsPrimaryKey = true
+		}
+
+		// check if the column is unique
+		if rawColumnDetails.ColumnKey == "UNI" {
+			column.IsUnique = true
+		}
+
+		// check if the column is nullable
+		if rawColumnDetails.IsNullable == "NO" {
+			column.NotNullable = true
+		}
+
+		// check if there is a default value
+		if rawColumnDetails.ColumnDefault.Valid {
+			column.DefaultValue = rawColumnDetails.ColumnDefault.String
+		}
+
+		// add the column to the columns slice
+		columns = append(columns, column)
+	}
+
+	return &pb.ListColumnsResponse{Columns: columns}, nil
 }
 
 func main() {
