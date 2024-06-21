@@ -486,6 +486,15 @@ func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddF
 		return nil, status.Error(codes.NotFound, "table not found")
 	}
 
+	// check if the column exists
+	columnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.TableName, in.ForeignKey.ColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if column exists")
+	}
+	if columnExists {
+		return nil, status.Error(codes.AlreadyExists, "column with this name already exists")
+	}
+
 	// Check if the reference table exists
 	referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName)
 	if err != nil {
@@ -540,8 +549,8 @@ func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddF
 		ReferenceColumnName: in.ForeignKey.ReferenceColumnName,
 		ColumnType:          columnType,
 		IsNotNull:           in.NotNullable,
-		OnUpdate:            "CASCADE",
-		OnDelete:            "CASCADE",
+		OnUpdate:            utils.GetReferentialActionsFromEnum(in.ForeignKey.OnUpdate),
+		OnDelete:            utils.GetReferentialActionsFromEnum(in.ForeignKey.OnDelete),
 	})
 
 	if err != nil {

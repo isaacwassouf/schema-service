@@ -216,33 +216,24 @@ func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, erro
 	return nil, fmt.Errorf("unsupported column type")
 }
 
-func MapReferentialActionsEnumToString(foreignKey *pb.ForeignKey, rawKey *shared.ForeignKey) {
-	switch foreignKey.OnUpdate {
+func GetReferentialActionsFromEnum(action pb.ReferentialAction) string {
+	switch action {
 	case pb.ReferentialAction_CASCADE:
-		rawKey.OnUpdate = "CASCADE"
+		return "CASCADE"
 	case pb.ReferentialAction_SET_NULL:
-		rawKey.OnUpdate = "SET NULL"
-		rawKey.OnUpdate = "SET DEFAULT"
+		return "SET NULL"
 	case pb.ReferentialAction_RESTRICT:
-		rawKey.OnUpdate = "RESTRICT"
+		return "RESTRICT"
 	case pb.ReferentialAction_NO_ACTION:
-		rawKey.OnUpdate = "NO ACTION"
+		return "NO ACTION"
 	default:
-		rawKey.OnUpdate = "NO ACTION"
+		return "NO ACTION"
 	}
+}
 
-	switch foreignKey.OnDelete {
-	case pb.ReferentialAction_CASCADE:
-		rawKey.OnDelete = "CASCADE"
-	case pb.ReferentialAction_SET_NULL:
-		rawKey.OnDelete = "SET NULL"
-	case pb.ReferentialAction_RESTRICT:
-		rawKey.OnDelete = "RESTRICT"
-	case pb.ReferentialAction_NO_ACTION:
-		rawKey.OnDelete = "NO ACTION"
-	default:
-		rawKey.OnDelete = "NO ACTION"
-	}
+func MapReferentialActionsEnumToString(foreignKey *pb.ForeignKey, rawKey *shared.ForeignKey) {
+	rawKey.OnUpdate = GetReferentialActionsFromEnum(foreignKey.OnUpdate)
+	rawKey.OnDelete = GetReferentialActionsFromEnum(foreignKey.OnDelete)
 }
 
 func MapReferentialActionsStringToEnum(rawKey *shared.ForeignKey, foreignKey *pb.ForeignKey) {
