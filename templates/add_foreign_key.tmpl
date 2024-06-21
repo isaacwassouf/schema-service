@@ -1,2 +1,3 @@
-ALTER TABLE ?
-ADD FOREIGN KEY (?) REFERENCES ?(?) ON DELETE CASCADE;
+ALTER TABLE {{.TableName}}
+ADD COLUMN {{.ColumnName}} {{.ColumnType}} {{- if .IsNotNull}} NOT NULL {{- end}},
+ADD FOREIGN KEY ({{.ColumnName}}) REFERENCES {{.ReferenceTableName}} ({{.ReferenceColumnName}}) ON DELETE {{.OnDelete }} ON UPDATE {{ .OnUpdate }}

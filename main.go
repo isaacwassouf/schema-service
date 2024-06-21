@@ -16,7 +16,7 @@ import (
 
 	db "github.com/isaacwassouf/schema-service/database"
 	pb "github.com/isaacwassouf/schema-service/protobufs/schema_management_service"
-	utils "github.com/isaacwassouf/schema-service/utils"
+	"github.com/isaacwassouf/schema-service/utils"
 )
 
 type Column struct {
@@ -475,6 +475,88 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 	}
 
 	return &pb.ListColumnsResponse{Columns: columns, ForeignKeys: foreignKeys}, nil
+}
+
+func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddForeignKeyRequest) (*pb.AddForeignKeyResponse, error) {
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// Check if the reference table exists
+	referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if reference table exists")
+	}
+	if !referenceTableExists {
+		return nil, status.Error(codes.NotFound, "reference table not found")
+	}
+
+	// Check if the reference column exists
+	referenceColumnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if reference column exists")
+	}
+	if !referenceColumnExists {
+		return nil, status.Error(codes.NotFound, "reference column not found")
+	}
+
+	// get the column type
+	columnType, err := utils.GetColumnTypeFromName(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get reference column type")
+	}
+
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/add_foreign_key.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	addForeignKeyTemplate, err := template.New("add_foreign_key").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to add foreign key")
+	}
+
+	// Execute the template and write the output to a string
+	var addForeignKeySQL bytes.Buffer
+	err = addForeignKeyTemplate.Execute(&addForeignKeySQL, struct {
+		TableName           string
+		ColumnName          string
+		ColumnType          string
+		ReferenceTableName  string
+		ReferenceColumnName string
+		IsNotNull           bool
+		OnUpdate            string
+		OnDelete            string
+	}{
+		TableName:           in.TableName,
+		ColumnName:          in.ForeignKey.ColumnName,
+		ReferenceTableName:  in.ForeignKey.ReferenceTableName,
+		ReferenceColumnName: in.ForeignKey.ReferenceColumnName,
+		ColumnType:          columnType,
+		IsNotNull:           in.NotNullable,
+		OnUpdate:            "CASCADE",
+		OnDelete:            "CASCADE",
+	})
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// Add the foreign key
+	_, err = s.schemaManagementServiceDB.Db.Exec(
+		addForeignKeySQL.String(),
+	)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to add foreign key")
+	}
+
+	return &pb.AddForeignKeyResponse{Message: "foreign key added"}, nil
 }
 
 func main() {

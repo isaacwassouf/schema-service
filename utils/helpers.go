@@ -272,3 +272,25 @@ func MapReferentialActionsStringToEnum(rawKey *shared.ForeignKey, foreignKey *pb
 		foreignKey.OnDelete = pb.ReferentialAction_NO_ACTION
 	}
 }
+
+func GetColumnTypeFromName(db *sql.DB, tableName, columnName string) (string, error) {
+	query := "SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+	// get the database name from the environment variables
+	databaseName := GetEnvVar("MYSQL_DATABASE", "database")
+
+	rows, err := db.Query(query, databaseName, tableName, columnName)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var columnType string
+	for rows.Next() {
+		err = rows.Scan(&columnType)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return columnType, nil
+}
