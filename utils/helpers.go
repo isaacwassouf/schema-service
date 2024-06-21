@@ -215,3 +215,32 @@ func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, erro
 	// return an error if the column type is not supported
 	return nil, fmt.Errorf("unsupported column type")
 }
+
+func MapReferentialActions(inKey *pb.ForeignKey, foreignKey *shared.ForeignKey) {
+	switch inKey.OnUpdate {
+	case pb.ReferentialAction_CASCADE:
+		foreignKey.OnUpdate = "CASCADE"
+	case pb.ReferentialAction_SET_NULL:
+		foreignKey.OnUpdate = "SET NULL"
+		foreignKey.OnUpdate = "SET DEFAULT"
+	case pb.ReferentialAction_RESTRICT:
+		foreignKey.OnUpdate = "RESTRICT"
+	case pb.ReferentialAction_NO_ACTION:
+		foreignKey.OnUpdate = "NO ACTION"
+	default:
+		foreignKey.OnUpdate = "NO ACTION"
+	}
+
+	switch inKey.OnDelete {
+	case pb.ReferentialAction_CASCADE:
+		foreignKey.OnDelete = "CASCADE"
+	case pb.ReferentialAction_SET_NULL:
+		foreignKey.OnDelete = "SET NULL"
+	case pb.ReferentialAction_RESTRICT:
+		foreignKey.OnDelete = "RESTRICT"
+	case pb.ReferentialAction_NO_ACTION:
+		foreignKey.OnDelete = "NO ACTION"
+	default:
+		foreignKey.OnDelete = "NO ACTION"
+	}
+}

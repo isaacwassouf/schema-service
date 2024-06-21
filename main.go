@@ -19,12 +19,6 @@ import (
 	utils "github.com/isaacwassouf/schema-service/utils"
 )
 
-type ForeignKey struct {
-	ReferenceTable  string
-	ReferenceColumn string
-	IsCascade       bool
-}
-
 type Column struct {
 	Name         string
 	Type         string
@@ -32,12 +26,12 @@ type Column struct {
 	IsUnique     bool
 	IsPrimaryKey bool
 	DefaultValue string
-	ForeignKey   ForeignKey
 }
 
 type Table struct {
-	TableName string
-	Columns   []Column
+	TableName   string
+	Columns     []Column
+	ForeignKeys []shared.ForeignKey
 }
 
 type AddColumnPayload struct {
@@ -106,24 +100,44 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			IsPrimaryKey: column.IsPrimaryKey,
 			DefaultValue: column.DefaultValue,
 		}
+	}
 
-		// check if the column is a foreign key
-		var foreignKey ForeignKey
-		if column.ForeignKey != nil {
-			foreignKey = ForeignKey{
-				ReferenceTable:  column.ForeignKey.TableName,
-				ReferenceColumn: column.ForeignKey.ColumnName,
-				IsCascade:       column.ForeignKey.IsCascade,
-			}
-			columns[i].ForeignKey = foreignKey
+	foreignKeys := make([]shared.ForeignKey, len(in.ForeignKeys))
+	for i, fk := range in.ForeignKeys {
+		foreignKeys[i] = shared.ForeignKey{
+			ColumnName:          fk.ColumnName,
+			ReferenceTableName:  fk.ReferenceTableName,
+			ReferenceColumnName: fk.ReferenceColumnName,
+		}
+		// map the enums to the string values
+		utils.MapReferentialActions(fk, &foreignKeys[i])
+
+		// Check if the reference table exists
+		referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, fk.ReferenceTableName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to check if reference table exists")
+		}
+		if !referenceTableExists {
+			return nil, status.Error(codes.NotFound, "reference table not found")
+		}
+
+		// Check if the reference column exists
+		referenceColumnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, fk.ReferenceTableName, fk.ReferenceColumnName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to check if reference column exists")
+		}
+
+		if !referenceColumnExists {
+			return nil, status.Error(codes.NotFound, "reference column not found")
 		}
 	}
 
 	var tableSQL bytes.Buffer
 	// Execute the template and write the output to a string
 	err = createTableTemplate.Execute(&tableSQL, Table{
-		TableName: in.TableName,
-		Columns:   columns,
+		TableName:   in.TableName,
+		Columns:     columns,
+		ForeignKeys: foreignKeys,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")

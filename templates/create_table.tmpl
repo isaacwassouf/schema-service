@@ -6,7 +6,11 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
         {{- if $element.IsUnique }} UNIQUE{{ end }}
         {{- if $element.DefaultValue }} DEFAULT {{ $element.DefaultValue }}{{ end }}
         {{- if $element.IsPrimaryKey }} PRIMARY KEY{{ end }}
-        {{- if $element.ForeignKey.ReferenceTable }} REFERENCES {{ $element.ForeignKey.ReferenceTable }}({{ $element.ForeignKey.ReferenceColumn }}){{ end }}
-        {{- if and $element.ForeignKey.ReferenceTable  $element.ForeignKey.IsCascade }} ON DELETE CASCADE {{ end }}
+    {{- end }}
+
+    {{- if gt (len .ForeignKeys) 0 }}
+        {{- range $index, $element := .ForeignKeys }}
+            , FOREIGN KEY ({{ $element.ColumnName }}) REFERENCES {{ $element.ReferenceTableName }}({{ $element.ReferenceColumnName }}) ON DELETE {{ $element.OnDelete }} ON UPDATE {{ $element.OnUpdate }}
+        {{- end }}
     {{- end }}
 );

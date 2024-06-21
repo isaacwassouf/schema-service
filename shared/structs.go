@@ -11,3 +11,11 @@ type RawColumnDetails struct {
 	ColumnDefault sql.NullString
 	Extra         string
 }
+
+type ForeignKey struct {
+	ColumnName          string
+	ReferenceTableName  string
+	ReferenceColumnName string
+	OnUpdate            string
+	OnDelete            string
+}
