@@ -198,7 +198,7 @@ func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, erro
 	if columnDetails.DataType == "varchar" {
 		column.Type = &pb.Column_VarcharColumn{
 			VarcharColumn: &pb.VarCharColumn{
-				Length: 122,
+				Length: uint32(columnDetails.MaxLength.Int64),
 			},
 		}
 
@@ -216,31 +216,59 @@ func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, erro
 	return nil, fmt.Errorf("unsupported column type")
 }
 
-func MapReferentialActions(inKey *pb.ForeignKey, foreignKey *shared.ForeignKey) {
-	switch inKey.OnUpdate {
+func MapReferentialActionsEnumToString(foreignKey *pb.ForeignKey, rawKey *shared.ForeignKey) {
+	switch foreignKey.OnUpdate {
 	case pb.ReferentialAction_CASCADE:
-		foreignKey.OnUpdate = "CASCADE"
+		rawKey.OnUpdate = "CASCADE"
 	case pb.ReferentialAction_SET_NULL:
-		foreignKey.OnUpdate = "SET NULL"
-		foreignKey.OnUpdate = "SET DEFAULT"
+		rawKey.OnUpdate = "SET NULL"
+		rawKey.OnUpdate = "SET DEFAULT"
 	case pb.ReferentialAction_RESTRICT:
-		foreignKey.OnUpdate = "RESTRICT"
+		rawKey.OnUpdate = "RESTRICT"
 	case pb.ReferentialAction_NO_ACTION:
-		foreignKey.OnUpdate = "NO ACTION"
+		rawKey.OnUpdate = "NO ACTION"
 	default:
-		foreignKey.OnUpdate = "NO ACTION"
+		rawKey.OnUpdate = "NO ACTION"
 	}
 
-	switch inKey.OnDelete {
+	switch foreignKey.OnDelete {
 	case pb.ReferentialAction_CASCADE:
-		foreignKey.OnDelete = "CASCADE"
+		rawKey.OnDelete = "CASCADE"
 	case pb.ReferentialAction_SET_NULL:
-		foreignKey.OnDelete = "SET NULL"
+		rawKey.OnDelete = "SET NULL"
 	case pb.ReferentialAction_RESTRICT:
-		foreignKey.OnDelete = "RESTRICT"
+		rawKey.OnDelete = "RESTRICT"
 	case pb.ReferentialAction_NO_ACTION:
-		foreignKey.OnDelete = "NO ACTION"
+		rawKey.OnDelete = "NO ACTION"
 	default:
-		foreignKey.OnDelete = "NO ACTION"
+		rawKey.OnDelete = "NO ACTION"
+	}
+}
+
+func MapReferentialActionsStringToEnum(rawKey *shared.ForeignKey, foreignKey *pb.ForeignKey) {
+	switch rawKey.OnUpdate {
+	case "CASCADE":
+		foreignKey.OnUpdate = pb.ReferentialAction_CASCADE
+	case "SET NULL":
+		foreignKey.OnUpdate = pb.ReferentialAction_SET_NULL
+	case "RESTRICT":
+		foreignKey.OnUpdate = pb.ReferentialAction_RESTRICT
+	case "NO ACTION":
+		foreignKey.OnUpdate = pb.ReferentialAction_NO_ACTION
+	default:
+		foreignKey.OnUpdate = pb.ReferentialAction_NO_ACTION
+	}
+
+	switch rawKey.OnDelete {
+	case "CASCADE":
+		foreignKey.OnDelete = pb.ReferentialAction_CASCADE
+	case "SET NULL":
+		foreignKey.OnDelete = pb.ReferentialAction_SET_NULL
+	case "RESTRICT":
+		foreignKey.OnDelete = pb.ReferentialAction_RESTRICT
+	case "NO ACTION":
+		foreignKey.OnDelete = pb.ReferentialAction_NO_ACTION
+	default:
+		foreignKey.OnDelete = pb.ReferentialAction_NO_ACTION
 	}
 }

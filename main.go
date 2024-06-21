@@ -110,7 +110,7 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			ReferenceColumnName: fk.ReferenceColumnName,
 		}
 		// map the enums to the string values
-		utils.MapReferentialActions(fk, &foreignKeys[i])
+		utils.MapReferentialActionsEnumToString(fk, &foreignKeys[i])
 
 		// Check if the reference table exists
 		referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, fk.ReferenceTableName)
@@ -403,9 +403,25 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 	defer rows.Close()
 
 	var columns []*pb.Column
+	var foreignKeys []*pb.ForeignKey
 	for rows.Next() {
 		var rawColumnDetails shared.RawColumnDetails
-		err := rows.Scan(&rawColumnDetails.ColumnName, &rawColumnDetails.DataType, &rawColumnDetails.ColumnType, &rawColumnDetails.ColumnKey, &rawColumnDetails.IsNullable, &rawColumnDetails.ColumnDefault, &rawColumnDetails.Extra)
+		err := rows.Scan(
+			&rawColumnDetails.ColumnName,
+			&rawColumnDetails.DataType,
+			&rawColumnDetails.ColumnType,
+			&rawColumnDetails.IsNullable,
+			&rawColumnDetails.ColumnDefault,
+			&rawColumnDetails.MaxLength,
+			&rawColumnDetails.Extra,
+			&rawColumnDetails.IsUnique,
+			&rawColumnDetails.IsPrimary,
+			&rawColumnDetails.IsForeign,
+			&rawColumnDetails.ForeignKey.ReferenceTableName,
+			&rawColumnDetails.ForeignKey.ReferenceColumnName,
+			&rawColumnDetails.ForeignKey.OnUpdate,
+			&rawColumnDetails.ForeignKey.OnDelete,
+		)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to scan column details")
 		}
@@ -418,14 +434,14 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 		// set the name of the column
 		column.Name = rawColumnDetails.ColumnName
 
-		// check if the column is primary key
-		if rawColumnDetails.ColumnKey == "PRI" {
-			column.IsPrimaryKey = true
+		// check if the column is unique
+		if rawColumnDetails.IsUnique {
+			column.IsUnique = true
 		}
 
-		// check if the column is unique
-		if rawColumnDetails.ColumnKey == "UNI" {
-			column.IsUnique = true
+		// check if the column is a primary key
+		if rawColumnDetails.IsPrimary {
+			column.IsPrimaryKey = true
 		}
 
 		// check if the column is nullable
@@ -438,11 +454,27 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 			column.DefaultValue = rawColumnDetails.ColumnDefault.String
 		}
 
+		if rawColumnDetails.IsForeign {
+			foreignKey := &pb.ForeignKey{
+				ColumnName:          rawColumnDetails.ColumnName,
+				ReferenceTableName:  rawColumnDetails.ForeignKey.ReferenceTableName.String,
+				ReferenceColumnName: rawColumnDetails.ForeignKey.ReferenceColumnName.String,
+			}
+
+			// map the referential actions string to the enum
+			utils.MapReferentialActionsStringToEnum(&shared.ForeignKey{
+				OnUpdate: rawColumnDetails.ForeignKey.OnUpdate.String,
+				OnDelete: rawColumnDetails.ForeignKey.OnDelete.String,
+			}, foreignKey)
+
+			foreignKeys = append(foreignKeys, foreignKey)
+		}
+
 		// add the column to the columns slice
 		columns = append(columns, column)
 	}
 
-	return &pb.ListColumnsResponse{Columns: columns}, nil
+	return &pb.ListColumnsResponse{Columns: columns, ForeignKeys: foreignKeys}, nil
 }
 
 func main() {
