@@ -285,3 +285,25 @@ func GetColumnTypeFromName(db *sql.DB, tableName, columnName string) (string, er
 
 	return columnType, nil
 }
+
+func GetForeignKeyConstraint(db *sql.DB, tableName, columnName string) (string, error) {
+	// get the database name from the environment variables
+	databaseName := GetEnvVar("MYSQL_DATABASE", "database")
+
+	query := "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_NAME = ? AND COLUMN_NAME = ? AND TABLE_SCHEMA = ?"
+	rows, err := db.Query(query, tableName, columnName, databaseName)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var constraintName string
+	for rows.Next() {
+		err = rows.Scan(&constraintName)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return constraintName, nil
+}

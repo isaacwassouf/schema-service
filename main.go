@@ -568,6 +568,109 @@ func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddF
 	return &pb.AddForeignKeyResponse{Message: "foreign key added"}, nil
 }
 
+func (s *SchemaManagementService) DropForeignKey(ctx context.Context, in *pb.DropForeignKeyRequest) (*pb.DropForeignKeyResponse, error) {
+	tableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.TableName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if table exists")
+	}
+	if !tableExists {
+		return nil, status.Error(codes.NotFound, "table not found")
+	}
+
+	// check if the column exists
+	columnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.TableName, in.ColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to check if column exists")
+	}
+	if !columnExists {
+		return nil, status.Error(codes.NotFound, "column not found")
+	}
+
+	// get the constraints for the foreign key
+	foreignKeyConstraints, err := utils.GetForeignKeyConstraint(s.schemaManagementServiceDB.Db, in.TableName, in.ColumnName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get foreign key constraints")
+	}
+
+	// read the file
+	templateFile, err := utils.ReadTemplateFile("templates/drop_foreign_key_constraint.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	dropForeignKeyConstraintTemplate, err := template.New("drop_foreign_key_constraint").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop foreign key")
+	}
+
+	// Execute the template and write the output to a string
+	var dropForeignKeyConstraintSQL bytes.Buffer
+	err = dropForeignKeyConstraintTemplate.Execute(&dropForeignKeyConstraintSQL, struct {
+		TableName      string
+		ConstraintName string
+	}{
+		TableName:      in.TableName,
+		ConstraintName: foreignKeyConstraints,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// read the file
+	templateFile, err = utils.ReadTemplateFile("templates/drop_foreign_key_column.tmpl")
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to read template file")
+	}
+
+	// create the template from the file
+	dropForeignKeyColumnTemplate, err := template.New("drop_foreign_key").Parse(templateFile)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop foreign key")
+	}
+
+	// Execute the template and write the output to a string
+	var dropForeignKeyColumnSQL bytes.Buffer
+	err = dropForeignKeyColumnTemplate.Execute(&dropForeignKeyColumnSQL, struct {
+		TableName  string
+		ColumnName string
+	}{
+		TableName:  in.TableName,
+		ColumnName: in.ColumnName,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to execute template")
+	}
+
+	// start a transaction
+	tx, err := s.schemaManagementServiceDB.Db.Begin()
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to start transaction")
+	}
+
+	defer tx.Rollback()
+
+	// Drop the foreign key
+	_, err = tx.Exec(dropForeignKeyConstraintSQL.String())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop foreign key constraint")
+	}
+
+	// Drop the foreign key constraint
+	_, err = tx.Exec(dropForeignKeyColumnSQL.String())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to drop foreign key")
+	}
+
+	// commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	return &pb.DropForeignKeyResponse{Message: "foreign key dropped"}, nil
+}
+
 func main() {
 	// load the environment variables from the .env file
 	err := utils.LoadEnvVarsFromFile()
