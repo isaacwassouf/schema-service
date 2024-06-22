@@ -13,4 +13,5 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
             , FOREIGN KEY ({{ $element.ColumnName }}) REFERENCES {{ $element.ReferenceTableName }}({{ $element.ReferenceColumnName }}) ON DELETE {{ $element.OnDelete }} ON UPDATE {{ $element.OnUpdate }}
         {{- end }}
     {{- end }}
-);
+) {{- if .TableComment }} COMMENT= "{{ .TableComment }}"  {{ end }};
+

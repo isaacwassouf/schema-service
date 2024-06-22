@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/isaacwassouf/schema-service/shared"
 	"log"
@@ -29,9 +30,10 @@ type Column struct {
 }
 
 type Table struct {
-	TableName   string
-	Columns     []Column
-	ForeignKeys []shared.ForeignKey
+	TableName    string
+	TableComment string
+	Columns      []Column
+	ForeignKeys  []shared.ForeignKey
 }
 
 type AddColumnPayload struct {
@@ -135,9 +137,10 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 	var tableSQL bytes.Buffer
 	// Execute the template and write the output to a string
 	err = createTableTemplate.Execute(&tableSQL, Table{
-		TableName:   in.TableName,
-		Columns:     columns,
-		ForeignKeys: foreignKeys,
+		TableName:    in.TableName,
+		Columns:      columns,
+		ForeignKeys:  foreignKeys,
+		TableComment: in.TableComment,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")
@@ -346,15 +349,25 @@ func (s *SchemaManagementService) ListTables(ctx context.Context, in *emptypb.Em
 		var tableName string
 		var rowsCount uint64
 		var tableSize uint64
-		err := rows.Scan(&tableName, &rowsCount, &tableSize)
+		var tableComment sql.NullString
+		var createTime string
+		err := rows.Scan(&tableName, &rowsCount, &tableSize, &tableComment, &createTime)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to scan table details")
 		}
-		tables = append(tables, &pb.TableDetails{
-			TableName: tableName,
-			RowsCount: rowsCount,
-			TableSize: tableSize,
-		})
+
+		tableDetails := &pb.TableDetails{
+			TableName:  tableName,
+			RowsCount:  rowsCount,
+			TableSize:  tableSize,
+			CreateTime: createTime,
+		}
+
+		if tableComment.Valid {
+			tableDetails.TableComment = tableComment.String
+		}
+
+		tables = append(tables, tableDetails)
 	}
 
 	return &pb.ListTablesResponse{Tables: tables}, nil
