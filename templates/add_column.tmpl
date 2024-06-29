@@ -1,5 +1,8 @@
 ALTER TABLE {{.TableName}}
 ADD COLUMN {{ .Column.Name }} {{ .Column.Type }}
+{{- if .Column.DefaultValue }}
+{{- if HasPrefix .Column.Type "VARCHAR" }} DEFAULT "{{ .Column.DefaultValue }}" {{ else }} DEFAULT {{ .Column.DefaultValue }}{{ end }}
+{{- end }}
 {{- if .Column.NotNullable }} NOT NULL{{ end }}
 {{- if .Column.IsUnique }} UNIQUE{{ end }}
 {{- if .Column.IsPrimaryKey }} PRIMARY KEY{{ end }}

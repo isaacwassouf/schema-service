@@ -5,9 +5,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/isaacwassouf/schema-service/shared"
 	"log"
 	"net"
+	"strings"
 	"text/template"
 
 	"google.golang.org/grpc"
@@ -17,6 +17,7 @@ import (
 
 	db "github.com/isaacwassouf/schema-service/database"
 	pb "github.com/isaacwassouf/schema-service/protobufs/schema_management_service"
+	"github.com/isaacwassouf/schema-service/shared"
 	"github.com/isaacwassouf/schema-service/utils"
 )
 
@@ -255,7 +256,9 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 	}
 
 	// create the template from the file
-	addColumnTemplate, err := template.New("create_table").Parse(templateFile)
+	addColumnTemplate, err := template.New("create_table").Funcs(template.FuncMap{
+		"HasPrefix": strings.HasPrefix,
+	}).Parse(templateFile)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add column")
 	}
@@ -294,6 +297,7 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 			NotNullable:  in.Column.NotNullable,
 			IsUnique:     in.Column.IsUnique,
 			IsPrimaryKey: in.Column.IsPrimaryKey,
+			DefaultValue: in.Column.DefaultValue,
 		},
 	})
 	if err != nil {
@@ -347,18 +351,18 @@ func (s *SchemaManagementService) ListTables(ctx context.Context, in *emptypb.Em
 	for rows.Next() {
 		// var tableDetails pb.TableDetails
 		var tableName string
-		var rowsCount uint64
+		var tableCount uint64
 		var tableSize uint64
 		var tableComment sql.NullString
 		var createTime string
-		err := rows.Scan(&tableName, &rowsCount, &tableSize, &tableComment, &createTime)
+		err := rows.Scan(&tableName, &tableCount, &tableSize, &tableComment, &createTime)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to scan table details")
 		}
 
 		tableDetails := &pb.TableDetails{
 			TableName:  tableName,
-			RowsCount:  rowsCount,
+			TableCount: tableCount,
 			TableSize:  tableSize,
 			CreateTime: createTime,
 		}
@@ -565,7 +569,6 @@ func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddF
 		OnUpdate:            utils.GetReferentialActionsFromEnum(in.ForeignKey.OnUpdate),
 		OnDelete:            utils.GetReferentialActionsFromEnum(in.ForeignKey.OnDelete),
 	})
-
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to execute template")
 	}
