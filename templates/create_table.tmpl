@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS {{.TableName}} (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     {{- range $index, $element := .Columns }}
         {{- if $index}},{{ end }}
         {{ $element.Name }} {{ $element.Type }}
@@ -7,6 +8,8 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
         {{- if $element.DefaultValue }} DEFAULT {{ $element.DefaultValue }}{{ end }}
         {{- if $element.IsPrimaryKey }} PRIMARY KEY{{ end }}
     {{- end }}
+    , created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    , updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
     {{- if gt (len .ForeignKeys) 0 }}
         {{- range $index, $element := .ForeignKeys }}
