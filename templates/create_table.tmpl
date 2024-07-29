@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
         {{- if $element.NotNullable }} NOT NULL{{ end }}
         {{- if $element.IsUnique }} UNIQUE{{ end }}
         {{- if $element.DefaultValue }} DEFAULT {{ $element.DefaultValue }}{{ end }}
-        {{- if $element.IsPrimaryKey }} PRIMARY KEY{{ end }}
     {{- end }}
     , created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     , updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

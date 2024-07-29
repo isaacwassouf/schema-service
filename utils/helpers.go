@@ -3,18 +3,23 @@ package utils
 import (
 	"database/sql"
 	"fmt"
-	"github.com/isaacwassouf/schema-service/shared"
-	"github.com/joho/godotenv"
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
+
 	pb "github.com/isaacwassouf/schema-service/protobufs/schema_management_service"
+	"github.com/isaacwassouf/schema-service/shared"
 )
 
 func LoadEnvVarsFromFile() error {
-	err := godotenv.Load()
-	if err != nil {
-		return err
+	environment := GetEnvVar("GO_ENV", "development")
+	if environment == "development" {
+		err := godotenv.Load()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	return nil
 }
@@ -85,6 +90,35 @@ func GetIntColumnType(column *pb.Column) (string, error) {
 	}
 
 	return columnType, nil
+}
+
+func GetDecimalColumnType(column *pb.Column) (string, error) {
+	// check if the precision is provided
+	if column.GetDecimalColumn().Precision == 0 {
+		return "", fmt.Errorf("decimal precision is required")
+	}
+
+	// check if the scale is provided
+	if column.GetDecimalColumn().Scale == 0 {
+		return "", fmt.Errorf("decimal scale is required")
+	}
+
+	return fmt.Sprintf("DECIMAL(%d, %d)", column.GetDecimalColumn().Precision, column.GetDecimalColumn().Scale), nil
+}
+
+func GetFixedPointColumnType(column *pb.Column) (string, error) {
+	var columnType string
+	switch column.GetFixedPointColumn().Type {
+	case pb.FixedPointColumnType_FLOAT:
+		columnType = "FLOAT"
+	case pb.FixedPointColumnType_DOUBLE:
+		columnType = "DOUBLE"
+	default:
+		return "", fmt.Errorf("invalid fixed point column type")
+
+	}
+
+	return fmt.Sprintf("%s(%d)", columnType, column.GetFixedPointColumn().Precision), nil
 }
 
 func GetVarCharColumnType(column *pb.Column) (string, error) {
@@ -191,6 +225,42 @@ func GetColumnFromType(columnDetails *shared.RawColumnDetails) (*pb.Column, erro
 	if columnDetails.DataType == "tinyint" {
 		column.Type = &pb.Column_BoolColumn{}
 
+		return column, nil
+	}
+
+	if columnDetails.DataType == "decimal" {
+		column.Type = &pb.Column_DecimalColumn{DecimalColumn: &pb.DecimalColumn{
+			Precision: uint32(columnDetails.Precision.Int64),
+			Scale:     uint32(columnDetails.Scale.Int64),
+		}}
+
+		return column, nil
+	}
+
+	if columnDetails.DataType == "float" {
+		column.Type = &pb.Column_FixedPointColumn{
+			FixedPointColumn: &pb.FixedPointColumn{
+				Type:      pb.FixedPointColumnType_FLOAT,
+				Precision: uint32(columnDetails.Precision.Int64),
+			},
+		}
+
+		return column, nil
+	}
+
+	if columnDetails.DataType == "double" {
+		column.Type = &pb.Column_FixedPointColumn{
+			FixedPointColumn: &pb.FixedPointColumn{
+				Type:      pb.FixedPointColumnType_DOUBLE,
+				Precision: uint32(columnDetails.Precision.Int64),
+			},
+		}
+
+		return column, nil
+	}
+
+	if columnDetails.DataType == "text" {
+		column.Type = &pb.Column_TextColumn{}
 		return column, nil
 	}
 

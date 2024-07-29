@@ -11,7 +11,6 @@ type RawColumnDetails struct {
 	MaxLength     sql.NullInt64
 	Extra         string
 	IsUnique      bool
-	IsPrimary     bool
 	IsForeign     bool
 	ForeignKey    struct {
 		ReferenceTableName  sql.NullString
@@ -19,6 +18,8 @@ type RawColumnDetails struct {
 		OnUpdate            sql.NullString
 		OnDelete            sql.NullString
 	}
+	Precision sql.NullInt64
+	Scale     sql.NullInt64
 }
 
 type ForeignKey struct {

@@ -5,4 +5,3 @@ ADD COLUMN {{ .Column.Name }} {{ .Column.Type }}
 {{- end }}
 {{- if .Column.NotNullable }} NOT NULL{{ end }}
 {{- if .Column.IsUnique }} UNIQUE{{ end }}
-{{- if .Column.IsPrimaryKey }} PRIMARY KEY{{ end }}

@@ -26,7 +26,6 @@ type Column struct {
 	Type         string
 	NotNullable  bool
 	IsUnique     bool
-	IsPrimaryKey bool
 	DefaultValue string
 }
 
@@ -89,6 +88,19 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, "invalid varchar column type")
 			}
+		case *pb.Column_DecimalColumn:
+			columnType, err = utils.GetDecimalColumnType(column)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid decimal column type")
+			}
+
+		case *pb.Column_FixedPointColumn:
+			columnType, err = utils.GetFixedPointColumnType(column)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid fixed point column type")
+			}
+		case *pb.Column_TextColumn:
+			columnType = "TEXT"
 		case nil:
 			return nil, status.Error(codes.InvalidArgument, "column type is required")
 		default:
@@ -100,7 +112,6 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 			Type:         columnType,
 			NotNullable:  column.NotNullable,
 			IsUnique:     column.IsUnique,
-			IsPrimaryKey: column.IsPrimaryKey,
 			DefaultValue: column.DefaultValue,
 		}
 	}
@@ -280,6 +291,20 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid varchar column type")
 		}
+
+	case *pb.Column_DecimalColumn:
+		columnType, err = utils.GetDecimalColumnType(in.Column)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid decimal column type")
+		}
+
+	case *pb.Column_FixedPointColumn:
+		columnType, err = utils.GetFixedPointColumnType(in.Column)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid fixed point column type")
+		}
+	case *pb.Column_TextColumn:
+		columnType = "TEXT"
 	case nil:
 		return nil, status.Error(codes.InvalidArgument, "column type is required")
 	default:
@@ -296,7 +321,6 @@ func (s *SchemaManagementService) AddColumn(ctx context.Context, in *pb.AddColum
 			Type:         columnType,
 			NotNullable:  in.Column.NotNullable,
 			IsUnique:     in.Column.IsUnique,
-			IsPrimaryKey: in.Column.IsPrimaryKey,
 			DefaultValue: in.Column.DefaultValue,
 		},
 	})
@@ -432,12 +456,13 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 			&rawColumnDetails.MaxLength,
 			&rawColumnDetails.Extra,
 			&rawColumnDetails.IsUnique,
-			&rawColumnDetails.IsPrimary,
 			&rawColumnDetails.IsForeign,
 			&rawColumnDetails.ForeignKey.ReferenceTableName,
 			&rawColumnDetails.ForeignKey.ReferenceColumnName,
 			&rawColumnDetails.ForeignKey.OnUpdate,
 			&rawColumnDetails.ForeignKey.OnDelete,
+			&rawColumnDetails.Scale,
+			&rawColumnDetails.Precision,
 		)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to scan column details")
@@ -454,11 +479,6 @@ func (s *SchemaManagementService) ListColumns(ctx context.Context, in *pb.ListCo
 		// check if the column is unique
 		if rawColumnDetails.IsUnique {
 			column.IsUnique = true
-		}
-
-		// check if the column is a primary key
-		if rawColumnDetails.IsPrimary {
-			column.IsPrimaryKey = true
 		}
 
 		// check if the column is nullable
