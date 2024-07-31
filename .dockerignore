@@ -1,0 +1,6 @@
+./.env
+./.env.template
+./tmp/
+./.air.toml
+./Dockerfile
+./.dockerignore

@@ -1,23 +1,12 @@
 services:
-  db:
-    image: mysql:8.4
-    container_name: schema-db
-    restart: always
+  schema:
+    build: .
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      GO_ENV: "production"
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
-      - "3307:3306"
-    volumes:
-      - db-data:/var/lib/mysql
-    networks:
-      - schema-management-network
-
-volumes:
-  db-data:
-
-networks:
-  schema-management-network:
-    external: false
+      - "8084:8084"
