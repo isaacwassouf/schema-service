@@ -1,3 +1,8 @@
 ALTER TABLE {{.TableName}}
-ADD COLUMN {{.ColumnName}} {{.ColumnType}} {{- if .IsNotNull}} NOT NULL {{- end}},
-ADD FOREIGN KEY ({{.ColumnName}}) REFERENCES {{.ReferenceTableName}} ({{.ReferenceColumnName}}) ON DELETE {{.OnDelete }} ON UPDATE {{ .OnUpdate }}
+{{- if eq .ReferenceTableName "users"}}
+  ADD COLUMN {{.ColumnName}} BIGINT UNSIGNED {{- if .IsNotNull}} NOT NULL {{- end}},
+  ADD FOREIGN KEY ({{.ColumnName}}) REFERENCES `baas-system`.users (id) ON DELETE {{.OnDelete }} ON UPDATE {{ .OnUpdate }}
+{{- else}}
+  ADD COLUMN {{.ColumnName}} {{.ColumnType}} {{- if .IsNotNull}} NOT NULL {{- end}},
+  ADD FOREIGN KEY ({{.ColumnName}}) REFERENCES {{.ReferenceTableName}} ({{.ReferenceColumnName}}) ON DELETE {{.OnDelete }} ON UPDATE {{ .OnUpdate }}
+{{- end}}

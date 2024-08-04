@@ -532,28 +532,31 @@ func (s *SchemaManagementService) AddForeignKey(ctx context.Context, in *pb.AddF
 		return nil, status.Error(codes.AlreadyExists, "column with this name already exists")
 	}
 
-	// Check if the reference table exists
-	referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to check if reference table exists")
-	}
-	if !referenceTableExists {
-		return nil, status.Error(codes.NotFound, "reference table not found")
-	}
+	var columnType string
+	if in.ForeignKey.ReferenceTableName != "users" {
+		// Check if the reference table exists
+		referenceTableExists, err := utils.CheckTableExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to check if reference table exists")
+		}
+		if !referenceTableExists {
+			return nil, status.Error(codes.NotFound, "reference table not found")
+		}
 
-	// Check if the reference column exists
-	referenceColumnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to check if reference column exists")
-	}
-	if !referenceColumnExists {
-		return nil, status.Error(codes.NotFound, "reference column not found")
-	}
+		// Check if the reference column exists
+		referenceColumnExists, err := utils.CheckColumnExists(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to check if reference column exists")
+		}
+		if !referenceColumnExists {
+			return nil, status.Error(codes.NotFound, "reference column not found")
+		}
 
-	// get the column type
-	columnType, err := utils.GetColumnTypeFromName(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get reference column type")
+		// get the column type
+		columnType, err = utils.GetColumnTypeFromName(s.schemaManagementServiceDB.Db, in.ForeignKey.ReferenceTableName, in.ForeignKey.ReferenceColumnName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to get reference column type")
+		}
 	}
 
 	// read the file
