@@ -20,5 +20,5 @@ jobs:
     
     - name: Build the Docker image
       run: |
-        docker build . --file Dockerfile --tag ${{ secrets.DOCKER_REGISTRY }}/baas-schema:latest
-        docker push ${{ secrets.DOCKER_REGISTRY }}/baas-schema:latest
+        docker build . --file Dockerfile --tag ${{ secrets.DO_REGISTRY }}/baas-schema:latest
+        docker push ${{ secrets.DO_REGISTRY }}/baas-schema:latest
