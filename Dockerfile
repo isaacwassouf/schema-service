@@ -18,6 +18,7 @@ FROM alpine:latest
 
 # Copy the binary from the builder stage
 COPY --from=builder /main /main
+COPY --from=builder /app/templates /templates
 
 # Run the binary
 CMD ["/main"]
