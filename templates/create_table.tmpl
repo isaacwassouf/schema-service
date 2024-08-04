@@ -7,8 +7,11 @@ CREATE TABLE IF NOT EXISTS {{.TableName}} (
         {{- if $element.IsUnique }} UNIQUE{{ end }}
         {{- if $element.DefaultValue }} DEFAULT {{ $element.DefaultValue }}{{ end }}
     {{- end }}
+    , creator_id BIGINT UNSIGNED NOT NULL
     , created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    , updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    , updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (creator_id) REFERENCES `baas-system`.users(id) ON DELETE CASCADE ON UPDATE CASCADE
 
     {{- if gt (len .ForeignKeys) 0 }}
         {{- range $index, $element := .ForeignKeys }}

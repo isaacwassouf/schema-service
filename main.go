@@ -65,7 +65,7 @@ func (s *SchemaManagementService) CreateTable(ctx context.Context, in *pb.Create
 	// create the template from the file
 	createTableTemplate, err := template.New("create_table").Parse(templateFile)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to create table")
+		return nil, status.Error(codes.Internal, "failed to parse table")
 	}
 
 	// create the columns slice
